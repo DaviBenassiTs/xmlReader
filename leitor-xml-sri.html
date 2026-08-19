@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leitor de XML - Comprovantes SRI</title>
+<style>
+  :root{
+    --bg:#f1f5f9; --card:#ffffff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b;
+    --accent:#2563eb; --green:#16a34a; --green-bg:#dcfce7; --red:#dc2626; --red-bg:#fee2e2;
+    --amber:#d97706; --amber-bg:#fef3c7; --blue-bg:#dbeafe;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{display:flex;min-height:100vh;}
+  .sidebar{width:300px;flex:none;background:#0f172a;color:#e2e8f0;padding:20px;display:flex;flex-direction:column;gap:16px;}
+  .sidebar h1{font-size:16px;margin:0;}
+  .dropzone{border:2px dashed #475569;border-radius:10px;padding:20px 12px;text-align:center;font-size:13px;color:#94a3b8;cursor:pointer;transition:.15s;}
+  .dropzone:hover,.dropzone.dragover{border-color:var(--accent);color:#fff;background:#1e293b;}
+  .file-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;overflow-y:auto;}
+  .file-list li{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:6px;font-size:13px;color:#cbd5e1;}
+  .file-list li:hover{background:#1e293b;}
+  .file-list li.active{background:var(--accent);color:#fff;}
+  .file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+  .file-delete{flex:none;background:transparent;border:none;color:inherit;opacity:0;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;line-height:1;transition:opacity .1s;}
+  .file-list li:hover .file-delete{opacity:.6;}
+  .file-delete:hover{opacity:1!important;background:rgba(255,255,255,.18);}
+  .main{flex:1;padding:28px 32px;overflow-x:hidden;min-width:0;}
+  .empty-state{color:var(--muted);font-size:15px;margin-top:60px;text-align:center;}
+  .doc-title-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+  .doc-title-bar h1{font-size:15px;color:var(--muted);font-weight:600;margin:0;word-break:break-all;}
+  .tabs{display:flex;gap:6px;}
+  .tab-btn{border:1px solid var(--border);background:#fff;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--muted);}
+  .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .card h2{margin:0 0 4px 0;font-size:19px;}
+  .card h3{margin:0 0 12px 0;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
+  .card h4{margin:0 0 8px 0;font-size:13px;color:var(--muted);}
+  .status-row{display:flex;align-items:center;gap:10px;}
+  .badge{display:inline-block;padding:5px 14px;border-radius:20px;font-weight:700;font-size:13px;letter-spacing:.02em;}
+  .badge-green{background:var(--green-bg);color:var(--green);}
+  .badge-red{background:var(--red-bg);color:var(--red);}
+  .badge-amber{background:var(--amber-bg);color:var(--amber);}
+  .env-tag{background:var(--blue-bg);color:#1d4ed8;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;}
+  .kv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 26px;}
+  .kv-item{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .kv-item .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .kv-item .v{font-size:14px;font-weight:500;word-break:break-word;}
+  .mono{font-family:ui-monospace,Consolas,monospace;cursor:pointer;}
+  .mono:hover{text-decoration:underline;}
+  .mono.copied{background:var(--green-bg);border-radius:4px;padding:0 3px;}
+  .title-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .action-btn{border:1px solid var(--border);background:#fff;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;gap:6px;}
+  .action-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .action-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .action-btn.primary:hover{color:#fff;}
+  .action-btn.editing{background:var(--green-bg);color:var(--green);border-color:var(--green);}
+  .edit-input{font:inherit;font-size:14px;font-weight:500;color:var(--text);width:100%;border:none;border-bottom:1px solid var(--border);background:transparent;padding:2px 0;}
+  .edit-input:focus{outline:none;border-bottom-color:var(--accent);}
+  table.data-table .edit-input{font-size:13px;font-weight:400;}
+  .v-stack{display:flex;flex-direction:column;gap:6px;}
+  .v-sub{display:flex;align-items:center;gap:6px;}
+  .v-sub-label{font-size:11px;color:var(--muted);white-space:nowrap;}
+  .doc-header-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;}
+  .doc-number{font-size:13px;color:var(--muted);margin-top:2px;}
+  .subsection{margin-top:14px;}
+  .nested-card{border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-top:10px;background:#fafafa;}
+  .table-wrap{overflow-x:auto;}
+  table.data-table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px;}
+  table.data-table th{background:#f1f5f9;text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);white-space:nowrap;}
+  table.data-table td{padding:8px 10px;border-top:1px solid var(--border);vertical-align:top;}
+  table.data-table tr:hover td{background:#f8fafc;}
+  .tag{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;}
+  .tag-red{background:var(--red-bg);color:var(--red);}
+  .tag-amber{background:var(--amber-bg);color:var(--amber);}
+  .tag-blue{background:var(--blue-bg);color:#1d4ed8;}
+  details.raw-block{border:1px solid var(--border);border-radius:8px;margin-bottom:14px;background:#fff;}
+  details.raw-block summary{padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);}
+  details.raw-block pre{margin:0;padding:14px;background:#0f172a;color:#e2e8f0;font-size:12px;overflow-x:auto;border-radius:0 0 8px 8px;white-space:pre;}
+  .error-card{border-color:var(--red);}
+  .error-card h2{color:var(--red);}
+  .sidebar-footer{margin-top:auto;display:flex;flex-direction:column;gap:6px;}
+  .sidebar-note{font-size:11px;color:#64748b;line-height:1.4;}
+  .sidebar-btn{background:transparent;border:1px solid #334155;color:#94a3b8;padding:8px 10px;border-radius:8px;font-size:12px;cursor:pointer;}
+  .sidebar-btn:hover{border-color:#64748b;color:#e2e8f0;}
+  @media(max-width:800px){.app{flex-direction:column;}.sidebar{width:100%;}}
+</style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>📄 Leitor de XML — Comprovantes SRI</h1>
+      <div id="dropzone" class="dropzone">Arraste arquivos .xml aqui<br>ou clique para selecionar
+        <input type="file" id="fileInput" accept=".xml,text/xml" multiple hidden>
+      </div>
+      <ul id="fileList" class="file-list"></ul>
+      <div class="sidebar-footer">
+        <div class="sidebar-note">Os arquivos ficam salvos no cache local do navegador e são restaurados ao reabrir esta página.</div>
+        <button id="clearCacheBtn" type="button" class="sidebar-btn">🗑 Limpar cache local</button>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="empty-state" id="emptyState">Envie um arquivo XML de resposta do SRI (autorização, guia de remissão, fatura, etc.) para ver as informações de forma legível.</div>
+      <div id="content"></div>
+    </main>
+  </div>
+
+<script>
+const DOC_TYPES = {
+  '01':'Fatura', '03':'Liquidação de Compra', '04':'Nota de Crédito',
+  '05':'Nota de Débito', '06':'Guia de Remissão', '07':'Comprovante de Retenção'
+};
+const AMBIENTE_MAP = { '1':'PRUEBAS (Testes)', '2':'PRODUCCIÓN', 'PRUEBAS':'PRUEBAS (Testes)', 'PRODUCCION':'PRODUCCIÓN', 'PRODUCCIÓN':'PRODUCCIÓN' };
+const MONEY_RE = /^(precio|valor|total|importe|base|descuento|propina|subtotal)/i;
+const LABELS = {
+  razonSocial:'Razão Social', nombreComercial:'Nome Comercial', ruc:'RUC', claveAcceso:'Chave de Acesso',
+  codDoc:'Código do Documento', estab:'Estabelecimento', ptoEmi:'Ponto de Emissão', secuencial:'Sequencial',
+  dirMatriz:'Endereço Matriz', dirEstablecimiento:'Endereço do Estabelecimento', contribuyenteEspecial:'Contribuinte Especial',
+  obligadoContabilidad:'Obrigado a Contabilidade', tipoEmision:'Tipo de Emissão', ambiente:'Ambiente',
+  fechaEmision:'Data de Emissão', dirPartida:'Endereço de Partida', razonSocialTransportista:'Transportadora',
+  tipoIdentificacionTransportista:'Tipo de Identificação do Transportador', rucTransportista:'RUC do Transportador',
+  fechaIniTransporte:'Início do Transporte', fechaFinTransporte:'Fim do Transporte', placa:'Placa',
+  destinatarios:'Destinatários', destinatario:'Destinatário', identificacionDestinatario:'Identificação do Destinatário',
+  razonSocialDestinatario:'Razão Social do Destinatário', dirDestinatario:'Endereço do Destinatário',
+  motivoTraslado:'Motivo do Transporte', docAduaneroUnico:'Documento Aduaneiro Único', codEstabDestino:'Estabelecimento de Destino',
+  ruta:'Rota', codDocSustento:'Código Doc. Sustento', numDocSustento:'Nº Doc. Sustento', numAutDocSustento:'Nº Autorização Doc. Sustento',
+  detalles:'Detalhes', detalle:'Item', descripcion:'Descrição', cantidad:'Quantidade', codigoPrincipal:'Código Principal',
+  codigoAuxiliar:'Código Auxiliar', precioUnitario:'Preço Unitário', descuento:'Desconto', precioTotalSinImpuesto:'Total sem Imposto',
+  mensajes:'Mensagens', mensaje:'Mensagem', identificador:'Código', informacionAdicional:'Informação Adicional', tipo:'Tipo',
+  totalSinImpuestos:'Total sem Impostos', totalDescuento:'Desconto Total', propina:'Gorjeta', importeTotal:'Valor Total',
+  moneda:'Moeda', pagos:'Pagamentos', pago:'Pagamento', formaPago:'Forma de Pagamento', plazo:'Prazo', unidadTiempo:'Unidade de Tempo',
+  totalConImpuestos:'Total de Impostos', totalImpuesto:'Imposto', impuestos:'Impostos', impuesto:'Imposto', codigo:'Código',
+  codigoPorcentaje:'Código da Alíquota', tarifa:'Alíquota (%)', baseImponible:'Base de Cálculo', valor:'Valor',
+  infoAdicional:'Informações Adicionais', campoAdicional:'Campo Adicional',
+  codDocModificado:'Código do Doc. Modificado', numDocModificado:'Nº do Doc. Modificado', motivo:'Motivo',
+  fechaEmisionDocSustento:'Data de Emissão Doc. Sustento',
+  tipoIdentificacionComprador:'Tipo de Identificação do Comprador', razonSocialComprador:'Comprador',
+  identificacionComprador:'Identificação do Comprador', direccionComprador:'Endereço do Comprador',
+  tipoIdentificacionSujetoRetenido:'Tipo de Identificação (Retido)', razonSocialSujetoRetenido:'Razão Social (Retido)',
+  identificacionSujetoRetenido:'Identificação (Retido)', periodoFiscal:'Período Fiscal',
+  codigoRetencion:'Código de Retenção', porcentajeRetener:'Percentual de Retenção', valorRetenido:'Valor Retido',
+  docSustento:'Documento Sustento', retenciones:'Retenções', retencion:'Retenção'
+};
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function ln(node){ return node.localName || node.nodeName.split(':').pop(); }
+function findAllByLocalName(root, name){ return Array.from(root.querySelectorAll('*')).filter(e=>ln(e)===name); }
+function findFirstByLocalName(root, name){ const r = findAllByLocalName(root, name); return r.length ? r[0] : null; }
+function getDirectChildren(el){ return Array.from(el.children); }
+function textOf(el){ return el && el.textContent!=null ? el.textContent.trim() : ''; }
+function labelize(tag){
+  if(LABELS[tag]) return LABELS[tag];
+  const spaced = tag.replace(/([a-z0-9])([A-Z])/g,'$1 $2');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+function fmtValue(name, value){
+  if(value==='' || value==null) return '—';
+  if(name==='ambiente') return AMBIENTE_MAP[value] || value;
+  if(name==='tipoEmision') return value==='1' ? 'Normal' : value;
+  if(name==='obligadoContabilidad') return value==='SI' ? 'Sim' : (value==='NO' ? 'Não' : value);
+  if(MONEY_RE.test(name)){
+    const n = parseFloat(String(value).replace(',','.'));
+    if(!isNaN(n)) return '$ ' + n.toFixed(2);
+  }
+  return value;
+}
+function fmtDateTime(value){
+  const d = new Date(value);
+  if(isNaN(d.getTime())) return value;
+  return d.toLocaleString('pt-BR', {dateStyle:'medium', timeStyle:'medium'});
+}
+function parseXml(text){
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'application/xml');
+  if(doc.querySelector('parsererror')) return null;
+  return doc;
+}
+
+let editMode = false;
+let editRegistry = [];
+
+function bindEditable(node, rawValue, displayValue, opts){
+  opts = opts || {};
+  if(!editMode || !node){
+    const cls = 'v' + (opts.mono ? ' mono' : '');
+    const shown = (displayValue===''||displayValue==null) ? '—' : displayValue;
+    return '<span class="'+cls+'">'+escapeHtml(shown)+'</span>';
+  }
+  const idx = editRegistry.length;
+  editRegistry.push(node);
+  return '<input type="text" class="edit-input" data-edit-idx="'+idx+'" value="'+escapeHtml(rawValue)+'">';
+}
+
+function xmlDeclOf(text){
+  const m = text.match(/^\s*<\?xml[^>]*\?>/);
+  return m ? m[0] : '';
+}
+function serializeDoc(doc, declPrefix){
+  const s = new XMLSerializer().serializeToString(doc);
+  if(!declPrefix || /^\s*<\?xml/.test(s)) return s;
+  return declPrefix + '\n' + s;
+}
+function extractNestedDocs(mainDoc){
+  const nested = [];
+  const autorizaciones = findAllByLocalName(mainDoc, 'autorizacion');
+  autorizaciones.forEach((auto, idx)=>{
+    const comprobanteEl = findFirstByLocalName(auto, 'comprobante');
+    if(comprobanteEl){
+      const compText = textOf(comprobanteEl);
+      if(compText.startsWith('<')){
+        const compDoc = parseXml(compText);
+        if(compDoc){
+          nested.push({
+            hostNode: comprobanteEl,
+            doc: compDoc,
+            decl: xmlDeclOf(compText),
+            originalText: compText,
+            label: 'Comprovante embutido' + (autorizaciones.length>1 ? ' #'+(idx+1) : '')
+          });
+        }
+      }
+    }
+  });
+  return nested;
+}
+
+function renderFields(parentEl, excludeTags){
+  excludeTags = excludeTags || [];
+  const children = getDirectChildren(parentEl).filter(c => !excludeTags.includes(ln(c)));
+  if(children.length===0) return '';
+  const order = [];
+  const groups = {};
+  children.forEach(c=>{
+    const n = ln(c);
+    if(!groups[n]){ groups[n]=[]; order.push(n); }
+    groups[n].push(c);
+  });
+  let kvItems = '';
+  let blocks = '';
+  order.forEach(tag=>{
+    const items = groups[tag];
+    const allLeaf = items.every(it=>it.children.length===0);
+    if(allLeaf){
+      if(!editMode){
+        const vals = items.map(it=>escapeHtml(fmtValue(tag, textOf(it))));
+        kvItems += '<div class="kv-item"><span class="k">'+escapeHtml(labelize(tag))+'</span><span class="v">'+vals.join(', ')+'</span></div>';
+      } else {
+        const inputs = items.map(it=>{
+          const nome = it.getAttribute && it.getAttribute('nombre');
+          const inputHtml = bindEditable(it, textOf(it), textOf(it));
+          return nome ? '<div class="v-sub"><span class="v-sub-label">'+escapeHtml(nome)+'</span>'+inputHtml+'</div>' : inputHtml;
+        }).join('');
+        kvItems += '<div class="kv-item"><span class="k">'+escapeHtml(labelize(tag))+'</span><div class="v-stack">'+inputs+'</div></div>';
+      }
+      return;
+    }
+    const tableEligible = items.every(it => it.children.length>0 && Array.from(it.children).every(c=>c.children.length===0));
+    if(tableEligible){
+      const cols = [];
+      items.forEach(it=>Array.from(it.children).forEach(c=>{ const n=ln(c); if(!cols.includes(n)) cols.push(n); }));
+      const rows = items.map(it=>{
+        const childMap = {};
+        Array.from(it.children).forEach(c=>{ childMap[ln(c)] = c; });
+        return '<tr>' + cols.map(c=>{
+          const cnode = childMap[c];
+          const raw = cnode ? textOf(cnode) : '';
+          return '<td>'+bindEditable(cnode, raw, fmtValue(c, raw))+'</td>';
+        }).join('') + '</tr>';
+      }).join('');
+      blocks += '<div class="subsection"><h4>'+escapeHtml(labelize(tag))+'</h4><div class="table-wrap"><table class="data-table"><thead><tr>'
+        + cols.map(c=>'<th>'+escapeHtml(labelize(c))+'</th>').join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+    } else {
+      items.forEach((it, idx)=>{
+        const heading = items.length>1 ? (labelize(tag)+' #'+(idx+1)) : labelize(tag);
+        blocks += '<div class="nested-card"><h4>'+escapeHtml(heading)+'</h4>'+renderFields(it)+'</div>';
+      });
+    }
+  });
+  let out = '';
+  if(kvItems) out += '<div class="kv-grid">'+kvItems+'</div>';
+  out += blocks;
+  return out;
+}
+
+function renderStandaloneDocument(rootEl){
+  const tag = ln(rootEl);
+  const infoTrib = findFirstByLocalName(rootEl, 'infoTributaria');
+  let out = '';
+  if(infoTrib){
+    const getEl = n=>findFirstByLocalName(infoTrib,n);
+    const get = n=>{ const e=getEl(n); return e?textOf(e):''; };
+    const codDoc = get('codDoc');
+    const docTypeLabel = DOC_TYPES[codDoc] || labelize(tag);
+    const ambienteLabel = AMBIENTE_MAP[get('ambiente')] || get('ambiente');
+    const numero = [get('estab'), get('ptoEmi'), get('secuencial')].filter(Boolean).join('-');
+    out += '<div class="card doc-header"><div class="doc-header-top"><div><h2>'+escapeHtml(docTypeLabel)+'</h2><div class="doc-number mono">'+escapeHtml(numero||'—')+'</div></div>'
+      + '<span class="env-tag">'+escapeHtml(ambienteLabel||'')+'</span></div>'
+      + '<div class="kv-grid" style="margin-top:12px">'
+      + '<div class="kv-item"><span class="k">Razão Social / Emissor</span>'+bindEditable(getEl('razonSocial'), get('razonSocial'), get('razonSocial'))+'</div>'
+      + (getEl('nombreComercial') ? '<div class="kv-item"><span class="k">Nome Comercial</span>'+bindEditable(getEl('nombreComercial'), get('nombreComercial'), get('nombreComercial'))+'</div>' : '')
+      + '<div class="kv-item"><span class="k">RUC</span>'+bindEditable(getEl('ruc'), get('ruc'), get('ruc'), {mono:true})+'</div>'
+      + '<div class="kv-item"><span class="k">Endereço Matriz</span>'+bindEditable(getEl('dirMatriz'), get('dirMatriz'), get('dirMatriz'))+'</div>'
+      + '<div class="kv-item"><span class="k">Chave de Acesso</span>'+bindEditable(getEl('claveAcceso'), get('claveAcceso'), get('claveAcceso'), {mono:true})+'</div>'
+      + '</div></div>';
+  } else {
+    out += '<div class="card doc-header"><h2>'+escapeHtml(labelize(tag))+'</h2></div>';
+  }
+
+  const bodyFields = renderFields(rootEl, ['infoTributaria','Signature']);
+  if(bodyFields) out += '<div class="card"><h3>Detalhes do Documento</h3>'+bodyFields+'</div>';
+
+  const signature = findFirstByLocalName(rootEl, 'Signature');
+  if(signature){
+    const signingTimeEl = findFirstByLocalName(signature, 'SigningTime');
+    const issuerEl = findFirstByLocalName(signature, 'X509IssuerName');
+    const serialEl = findFirstByLocalName(signature, 'X509SerialNumber');
+    const signingTime = signingTimeEl ? textOf(signingTimeEl) : '';
+    out += '<div class="card"><h3>Assinatura Digital</h3><div class="kv-grid">'
+      + '<div class="kv-item"><span class="k">Data/Hora da Assinatura</span><span class="v">'+escapeHtml(signingTime?fmtDateTime(signingTime):'—')+'</span></div>'
+      + '<div class="kv-item"><span class="k">Emissor do Certificado</span><span class="v">'+escapeHtml(issuerEl?textOf(issuerEl):'—')+'</span></div>'
+      + '<div class="kv-item"><span class="k">Nº de Série do Certificado</span><span class="v mono">'+escapeHtml(serialEl?textOf(serialEl):'—')+'</span></div>'
+      + '</div></div>';
+  }
+  return out;
+}
+
+function renderMessages(auto){
+  const mensajesRoot = findFirstByLocalName(auto, 'mensajes');
+  if(!mensajesRoot) return '';
+  const msgs = findAllByLocalName(mensajesRoot, 'mensaje');
+  if(!msgs.length) return '';
+  let rows = msgs.map(m=>{
+    const tipo = textOf(findFirstByLocalName(m,'tipo'));
+    const id = textOf(findFirstByLocalName(m,'identificador'));
+    const msg = textOf(findFirstByLocalName(m,'mensaje'));
+    const info = textOf(findFirstByLocalName(m,'informacionAdicional'));
+    const cls = tipo==='ERROR' ? 'tag-red' : (tipo==='ADVERTENCIA' ? 'tag-amber' : 'tag-blue');
+    return '<tr><td><span class="tag '+cls+'">'+escapeHtml(tipo||'—')+'</span></td><td>'+escapeHtml(id||'—')+'</td><td>'+escapeHtml(msg||'—')+'</td><td>'+escapeHtml(info||'—')+'</td></tr>';
+  }).join('');
+  return '<div class="card"><h3>Mensagens</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>Tipo</th><th>Código</th><th>Mensagem</th><th>Informação Adicional</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+}
+
+function renderAuthorizations(entry, autorizaciones){
+  const doc = entry.mainDoc;
+  const claveConsultada = textOf(findFirstByLocalName(doc,'claveAccesoConsultada'));
+  const numeroComp = textOf(findFirstByLocalName(doc,'numeroComprobantes'));
+  let out = '<div class="card" style="border:none;box-shadow:none;padding:0 0 4px 0;background:transparent;"><h2 style="margin:0;">Resultado da Consulta ao SRI</h2></div>';
+  autorizaciones.forEach((auto, idx)=>{
+    const estado = textOf(findFirstByLocalName(auto,'estado'));
+    const fechaAut = textOf(findFirstByLocalName(auto,'fechaAutorizacion'));
+    const ambiente = textOf(findFirstByLocalName(auto,'ambiente'));
+    const badgeClass = estado==='AUTORIZADO' ? 'badge-green' : (estado==='NO AUTORIZADO' ? 'badge-red' : 'badge-amber');
+    out += '<div class="card status-card"><div class="status-row"><span class="badge '+badgeClass+'">'+escapeHtml(estado||'—')+'</span>'
+      + '<span class="env-tag">'+escapeHtml(AMBIENTE_MAP[ambiente]||ambiente||'')+'</span></div>'
+      + '<div class="kv-grid" style="margin-top:12px">'
+      + '<div class="kv-item"><span class="k">Data de Autorização</span><span class="v">'+escapeHtml(fechaAut?fmtDateTime(fechaAut):'—')+'</span></div>'
+      + '<div class="kv-item"><span class="k">Chave de Acesso Consultada</span><span class="v mono">'+escapeHtml(claveConsultada||'—')+'</span></div>'
+      + '<div class="kv-item"><span class="k">Nº de Comprovantes</span><span class="v">'+escapeHtml(numeroComp||'—')+'</span></div>'
+      + '</div></div>';
+
+    out += renderMessages(auto);
+
+    const comprobanteEl = findFirstByLocalName(auto, 'comprobante');
+    if(comprobanteEl){
+      const nestedEntry = entry.nested.find(n=>n.hostNode===comprobanteEl);
+      if(nestedEntry){
+        out += renderStandaloneDocument(nestedEntry.doc.documentElement);
+      } else if(textOf(comprobanteEl).startsWith('<')){
+        out += '<div class="card"><h3>Comprovante</h3><p>Não foi possível interpretar o XML embutido do comprovante.</p></div>';
+      }
+    }
+  });
+  return out;
+}
+
+function rawXmlSection(entry){
+  let out = '<details class="raw-block" open><summary>Arquivo original</summary><pre>'+escapeHtml(prettyPrintXml(entry.originalText))+'</pre></details>';
+  entry.nested.forEach(n=>{
+    out += '<details class="raw-block"><summary>'+escapeHtml(n.label)+' (original)</summary><pre>'+escapeHtml(prettyPrintXml(n.originalText))+'</pre></details>';
+  });
+  if(entry.dirty){
+    entry.nested.forEach(n=>{ n.hostNode.textContent = serializeDoc(n.doc, n.decl); });
+    const editedMain = serializeDoc(entry.mainDoc, entry.mainDecl);
+    out += '<details class="raw-block" open><summary>XML editado (pré-visualização)</summary><pre>'+escapeHtml(prettyPrintXml(editedMain))+'</pre></details>';
+  }
+  return out;
+}
+
+function prettyPrintXml(sourceXml){
+  const xml = sourceXml.replace(/(>)(<)(\/*)/g, '$1\n$2$3');
+  const lines = xml.split('\n');
+  let pad = 0;
+  let formatted = '';
+  lines.forEach(node=>{
+    node = node.trim();
+    if(!node) return;
+    let indentChange = 0;
+    if(/^<\/\w/.test(node)){
+      pad = Math.max(pad - 1, 0);
+    } else if(/^<\w[^>]*[^\/]>$/.test(node) && !/^<\?/.test(node)){
+      indentChange = 1;
+    }
+    formatted += '  '.repeat(pad) + node + '\n';
+    pad += indentChange;
+  });
+  return formatted.trim();
+}
+
+function errorCard(msg){
+  return '<div class="card error-card"><h2>Erro ao ler o XML</h2><p>'+escapeHtml(msg||'O arquivo não pôde ser interpretado como XML válido.')+'</p></div>';
+}
+
+function exportXml(entry){
+  let xmlStr, suffix;
+  if(entry.dirty){
+    entry.nested.forEach(n=>{ n.hostNode.textContent = serializeDoc(n.doc, n.decl); });
+    xmlStr = serializeDoc(entry.mainDoc, entry.mainDecl);
+    suffix = '-editado';
+  } else {
+    xmlStr = entry.originalText;
+    suffix = '';
+  }
+  const blob = new Blob([xmlStr], {type:'application/xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const base = entry.name.replace(/\.xml$/i, '');
+  a.href = url;
+  a.download = base + suffix + '.xml';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function renderAll(entry){
+  const content = document.getElementById('content');
+  if(entry.parseError){
+    content.innerHTML = errorCard();
+    return;
+  }
+  editRegistry = [];
+  const doc = entry.mainDoc;
+  const root = doc.documentElement;
+  let summary = '';
+  const autorizaciones = findAllByLocalName(doc, 'autorizacion');
+  if(autorizaciones.length){
+    summary = renderAuthorizations(entry, autorizaciones);
+  } else {
+    const infoTrib = findFirstByLocalName(root, 'infoTributaria');
+    if(infoTrib){
+      summary = renderStandaloneDocument(root);
+    } else {
+      summary = '<div class="card"><h2>'+escapeHtml(labelize(ln(root)))+'</h2>'+renderFields(root)+'</div>';
+    }
+  }
+  const raw = rawXmlSection(entry);
+  const editBtnLabel = editMode ? '✓ Concluir edição' : '✎ Editar XML';
+  content.innerHTML = '<div class="doc-title-bar"><h1>'+escapeHtml(entry.name)+'</h1>'
+    + '<div class="title-actions">'
+    +   '<div class="tabs"><button class="tab-btn active" data-tab="resumo">Resumo</button><button class="tab-btn" data-tab="raw">XML Bruto</button></div>'
+    +   '<button id="editToggleBtn" type="button" class="action-btn'+(editMode?' editing':'')+'">'+editBtnLabel+'</button>'
+    +   '<button id="exportBtn" type="button" class="action-btn primary">⬇ Exportar XML</button>'
+    + '</div></div>'
+    + '<div class="tab-panel" id="panel-resumo">'+summary+'</div>'
+    + '<div class="tab-panel" id="panel-raw" style="display:none">'+raw+'</div>';
+
+  content.querySelectorAll('.tab-btn[data-tab]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      content.querySelectorAll('.tab-btn[data-tab]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-resumo').style.display = btn.dataset.tab==='resumo' ? '' : 'none';
+      document.getElementById('panel-raw').style.display = btn.dataset.tab==='raw' ? '' : 'none';
+    });
+  });
+  document.getElementById('editToggleBtn').addEventListener('click', ()=>{
+    editMode = !editMode;
+    renderAll(entry);
+  });
+  document.getElementById('exportBtn').addEventListener('click', ()=>exportXml(entry));
+}
+
+document.getElementById('content').addEventListener('click', e=>{
+  const t = e.target.closest('.mono');
+  if(t && navigator.clipboard){
+    navigator.clipboard.writeText(t.textContent.trim()).then(()=>{
+      t.classList.add('copied');
+      setTimeout(()=>t.classList.remove('copied'), 700);
+    });
+  }
+});
+
+document.getElementById('content').addEventListener('input', e=>{
+  const t = e.target.closest('.edit-input');
+  if(!t) return;
+  const node = editRegistry[Number(t.dataset.editIdx)];
+  if(!node) return;
+  node.textContent = t.value;
+  if(activeIndex>=0){
+    loaded[activeIndex].dirty = true;
+    scheduleSaveCache();
+  }
+});
+
+const loaded = [];
+let activeIndex = -1;
+const CACHE_KEY = 'leitorXmlSri.cache.v1';
+let saveCacheTimer = null;
+
+function serializeEntryForCache(entry){
+  if(entry.parseError) return { name: entry.name, parseError:true, originalText: entry.originalText || '' };
+  let editedText = null;
+  if(entry.dirty){
+    entry.nested.forEach(n=>{ n.hostNode.textContent = serializeDoc(n.doc, n.decl); });
+    editedText = serializeDoc(entry.mainDoc, entry.mainDecl);
+  }
+  return { name: entry.name, originalText: entry.originalText, editedText };
+}
+
+function saveCache(){
+  try{
+    const data = { activeIndex, files: loaded.map(serializeEntryForCache) };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  }catch(e){ console.warn('Não foi possível salvar no cache local:', e); }
+}
+
+function scheduleSaveCache(){
+  clearTimeout(saveCacheTimer);
+  saveCacheTimer = setTimeout(saveCache, 400);
+}
+
+function buildEntryFromTexts(name, originalText, editedText){
+  const workingText = editedText || originalText;
+  const mainDoc = parseXml(workingText);
+  if(!mainDoc) return { name, parseError:true, originalText };
+  const entry = { name, mainDoc, mainDecl:xmlDeclOf(workingText), originalText, dirty: !!editedText };
+  entry.nested = extractNestedDocs(mainDoc);
+  return entry;
+}
+
+function loadCache(){
+  let raw;
+  try{ raw = localStorage.getItem(CACHE_KEY); }catch(e){ return; }
+  if(!raw) return;
+  try{
+    const data = JSON.parse(raw);
+    (data.files || []).forEach(d=>{
+      if(d.parseError){ loaded.push({name:d.name, parseError:true}); return; }
+      loaded.push(buildEntryFromTexts(d.name, d.originalText, d.editedText));
+    });
+    if(loaded.length){
+      const idx = (typeof data.activeIndex==='number' && data.activeIndex>=0 && data.activeIndex<loaded.length) ? data.activeIndex : 0;
+      selectFile(idx);
+    }
+  }catch(e){ console.warn('Cache local corrompido, ignorando.', e); }
+}
+
+function clearCache(){
+  try{ localStorage.removeItem(CACHE_KEY); }catch(e){}
+  loaded.length = 0;
+  activeIndex = -1;
+  renderFileList();
+  document.getElementById('content').innerHTML = '';
+  document.getElementById('emptyState').style.display = '';
+}
+
+function renderFileList(){
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+  loaded.forEach((f, i)=>{
+    const li = document.createElement('li');
+    if(i===activeIndex) li.classList.add('active');
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'file-name';
+    nameSpan.textContent = f.name;
+    nameSpan.title = f.name;
+    nameSpan.addEventListener('click', ()=>selectFile(i));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'file-delete';
+    delBtn.title = 'Remover arquivo';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(confirm('Remover "'+f.name+'" da lista?')) removeFile(i);
+    });
+    li.appendChild(nameSpan);
+    li.appendChild(delBtn);
+    list.appendChild(li);
+  });
+}
+
+function removeFile(i){
+  loaded.splice(i, 1);
+  if(loaded.length === 0){
+    activeIndex = -1;
+    renderFileList();
+    document.getElementById('content').innerHTML = '';
+    document.getElementById('emptyState').style.display = '';
+    saveCache();
+    return;
+  }
+  if(i === activeIndex){
+    selectFile(Math.min(i, loaded.length-1));
+    return;
+  }
+  if(i < activeIndex) activeIndex -= 1;
+  renderFileList();
+  saveCache();
+}
+
+function selectFile(i){
+  activeIndex = i;
+  renderFileList();
+  document.getElementById('emptyState').style.display = 'none';
+  renderAll(loaded[i]);
+  saveCache();
+}
+
+function readFileSmart(file){
+  return file.arrayBuffer().then(buf=>{
+    let text = new TextDecoder('utf-8').decode(buf);
+    const m = text.match(/<\?xml[^>]*encoding=["']([^"']+)["']/i);
+    if(m && m[1] && !/utf-?8/i.test(m[1])){
+      try{ text = new TextDecoder(m[1]).decode(buf); }catch(e){}
+    }
+    return text;
+  });
+}
+
+function handleFiles(fileList){
+  Array.from(fileList).filter(f=>/\.xml$/i.test(f.name)).forEach(f=>{
+    readFileSmart(f).then(text=>{
+      const mainDoc = parseXml(text);
+      let entry;
+      if(!mainDoc){
+        entry = { name:f.name, parseError:true };
+      } else {
+        entry = { name:f.name, mainDoc, mainDecl:xmlDeclOf(text), originalText:text, dirty:false };
+        entry.nested = extractNestedDocs(mainDoc);
+      }
+      loaded.push(entry);
+      selectFile(loaded.length-1);
+    });
+  });
+}
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+dropzone.addEventListener('click', ()=>fileInput.click());
+fileInput.addEventListener('change', e=>{ handleFiles(e.target.files); fileInput.value=''; });
+['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.add('dragover'); }));
+['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.remove('dragover'); }));
+dropzone.addEventListener('drop', e=>{ handleFiles(e.dataTransfer.files); });
+
+document.getElementById('clearCacheBtn').addEventListener('click', ()=>{
+  if(confirm('Limpar todos os arquivos salvos no cache local deste navegador?')) clearCache();
+});
+
+loadCache();
+</script>
+</body>
+</html>

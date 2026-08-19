@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<factura id="comprobante" version="1.1.0">
+  <infoTributaria>
+    <ambiente>2</ambiente>
+    <tipoEmision>1</tipoEmision>
+    <razonSocial>EMPRESA DE TESTE S.A.</razonSocial>
+    <nombreComercial>Loja Teste</nombreComercial>
+    <ruc>1790012345001</ruc>
+    <claveAcceso>1234567890123456789012345678901234567890123456789</claveAcceso>
+    <codDoc>01</codDoc>
+    <estab>001</estab>
+    <ptoEmi>001</ptoEmi>
+    <secuencial>000000123</secuencial>
+    <dirMatriz>Av. Principal 123 e Secundaria</dirMatriz>
+  </infoTributaria>
+  <infoFactura>
+    <fechaEmision>15/08/2026</fechaEmision>
+    <razonSocialComprador>CLIENTE EXEMPLO</razonSocialComprador>
+    <identificacionComprador>0912345678</identificacionComprador>
+    <totalSinImpuestos>100.00</totalSinImpuestos>
+    <totalDescuento>0.00</totalDescuento>
+    <importeTotal>112.00</importeTotal>
+    <moneda>DOLAR</moneda>
+  </infoFactura>
+  <detalles>
+    <detalle>
+      <codigoPrincipal>P001</codigoPrincipal>
+      <descripcion>Produto de Teste</descripcion>
+      <cantidad>2.00</cantidad>
+      <precioUnitario>50.00</precioUnitario>
+      <descuento>0.00</descuento>
+      <precioTotalSinImpuesto>100.00</precioTotalSinImpuesto>
+    </detalle>
+  </detalles>
+</factura>
